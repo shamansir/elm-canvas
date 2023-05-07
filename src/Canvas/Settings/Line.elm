@@ -11,7 +11,7 @@ Line style settings apply to paths, and the stroke of shapes and text.
 
 -}
 
-import Canvas.Internal.Canvas as C exposing (..)
+import Canvas.Internal.Canvas exposing (..)
 import Canvas.Internal.CustomElementJsonApi as CE exposing (..)
 import Canvas.Settings exposing (Setting)
 
@@ -37,6 +37,7 @@ type LineCap
     | SquareCap
 
 
+lineCapToString : LineCap -> String
 lineCapToString cap =
     case cap of
         ButtCap ->
@@ -73,6 +74,7 @@ type LineJoin
     | MiterJoin
 
 
+lineJoinToString : LineJoin -> String
 lineJoinToString join =
     case join of
         BevelJoin ->

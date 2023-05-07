@@ -1,7 +1,7 @@
 module Canvas exposing
     ( toHtml, toHtmlWith
     , Renderable, Point
-    , clear, shapes, text, texture, group
+    , clear, shapes, text, texture, group, video
     , Shape
     , rect, roundRect, circle, arc, path
     , PathSegment, arcTo, bezierCurveTo, lineTo, moveTo, quadraticCurveTo
@@ -23,7 +23,7 @@ requires the `elm-canvas` web component to work.
 
 @docs Renderable, Point
 
-@docs clear, shapes, text, texture, group
+@docs clear, shapes, text, texture, group, video
 
 
 # Drawing shapes
@@ -50,9 +50,10 @@ In order to make a complex path, we need to put together a list of `PathSegment`
 import Canvas.Internal.Canvas as C exposing (..)
 import Canvas.Internal.CustomElementJsonApi as CE exposing (Commands, commands)
 import Canvas.Internal.Texture as T
+import Canvas.Internal.Video as V
 import Canvas.Texture as Texture exposing (Texture)
-import Color exposing (Color)
-import Html exposing (..)
+import Canvas.Video as Video exposing (Video)
+import Html as H exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on)
 import Html.Keyed as Keyed
@@ -94,6 +95,7 @@ toHtml ( w, h ) attrs entities =
         { width = w
         , height = h
         , textures = []
+        , videos = []
         }
         attrs
         entities
@@ -130,6 +132,7 @@ toHtmlWith :
     { width : Int
     , height : Int
     , textures : List (Texture.Source msg)
+    , videos : List (Video.Source msg)
     }
     -> List (Attribute msg)
     -> List Renderable
@@ -139,6 +142,7 @@ toHtmlWith options attrs entities =
         (commands (render entities) :: height options.height :: width options.width :: attrs)
         (( "__canvas", cnvs )
             :: List.map renderTextureSource options.textures
+            ++ List.map renderVideoSource options.videos
         )
 
 
@@ -333,7 +337,6 @@ You can find more info on this [page](https://developer.mozilla.org/en-US/docs/W
 roundRect : Point -> Float -> Float -> List Float -> Shape
 roundRect pos width height radii =
     RoundRect pos width height radii
-
 
 
 {-| Creates a circle. It takes the position of the center of the circle, and the
@@ -554,6 +557,19 @@ texture settings p t =
         )
 
 
+{-| Rendering video
+-}
+video : List Setting -> Point -> Video -> Renderable
+video settings p t =
+    addSettingsToRenderable settings
+        (Renderable
+            { commands = []
+            , drawOp = NotSpecified
+            , drawable = DrawableVideo p t
+            }
+        )
+
+
 
 -- Groups
 
@@ -614,6 +630,9 @@ renderDrawable drawable drawOp cmds =
 
         DrawableTexture p t ->
             renderTexture p t cmds
+
+        DrawableVideo p t ->
+            renderVideo p t cmds
 
         DrawableClear p w h ->
             renderClear p w h cmds
@@ -766,6 +785,11 @@ renderTexture ( x, y ) t cmds =
     T.drawTexture x y t cmds
 
 
+renderVideo : Point -> Video -> Commands -> Commands
+renderVideo ( x, y ) t cmds =
+    V.drawVideo x y t cmds
+
+
 renderTextureSource : Texture.Source msg -> ( String, Html msg )
 renderTextureSource textureSource =
     case textureSource of
@@ -776,6 +800,21 @@ renderTextureSource textureSource =
                 , attribute "crossorigin" "anonymous"
                 , style "display" "none"
                 , on "load" (D.map onLoad T.decodeImageLoadEvent)
+                , on "error" (D.succeed (onLoad Nothing))
+                ]
+                []
+            )
+
+
+renderVideoSource : Video.Source msg -> ( String, Html msg )
+renderVideoSource videoSource =
+    case videoSource of
+        V.TSVideoUrl url onLoad ->
+            ( url
+            , H.video
+                [ src url
+                , style "display" "none"
+                , on "load" (D.map onLoad V.decodeVideoLoadEvent)
                 , on "error" (D.succeed (onLoad Nothing))
                 ]
                 []
